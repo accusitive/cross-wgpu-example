@@ -1,0 +1,5 @@
+[app]
+name = "vox23"
+stylized-name = "Vox23"
+domain = "neb.best"
+template-pack = "winit"
