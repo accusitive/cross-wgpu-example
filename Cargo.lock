@@ -1785,6 +1785,7 @@ dependencies = [
  "console_log",
  "futures",
  "image",
+ "instant",
  "log",
  "mobile-entry-point",
  "ndk-glue",

@@ -69,6 +69,7 @@ fn run(event_loop: EventLoop<()>, window: Window) {
             Event::Resumed => {
                 let size = window.inner_size();
                 renderer.resize(size);
+                renderer.resume(&window);
                 window.request_redraw();
             }
 
@@ -76,9 +77,10 @@ fn run(event_loop: EventLoop<()>, window: Window) {
                 renderer.suspend();
             }
             Event::RedrawRequested(_) => {
+                #[cfg(not(target_os = "android"))]
                 renderer.prepare_surface(&window);
                 renderer.render();
-                window.request_redraw();
+                // window.request_redraw();
             }
 
             _ => {}

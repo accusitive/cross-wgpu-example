@@ -1,1 +1,1 @@
-cargo build --target wasm32-unknown-unknown && wasm-pack build --target web
+cargo build --target wasm32-unknown-unknown && wasm-pack build --target web --dev

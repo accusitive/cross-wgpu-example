@@ -2,6 +2,7 @@ use futures::{
     executor::{LocalPool, LocalSpawner},
     task::{LocalSpawn, SpawnExt},
 };
+use instant::Instant;
 use wgpu::{
     util::StagingBelt, Adapter, Backends, Device, Instance, Limits, Queue, RenderPipeline, Surface,
     SurfaceConfiguration,
@@ -120,6 +121,9 @@ impl Renderer {
             fps_measurement: 0.0,
         }
     }
+    pub fn resume(&mut self, window: &Window) {
+        self.prepare_surface(window);
+    }
     pub fn suspend(&mut self) {
         self.surface.take();
     }
@@ -145,7 +149,6 @@ impl Renderer {
         GlyphBrushBuilder::using_font(inconsolata).build(&device, FORMAT)
     }
     pub fn prepare_surface(&mut self, window: &Window) {
-        #[cfg(not(target_os = "android"))]
         {
             if self.surface.is_none() {
                 self.surface = Some(unsafe { self.instance.create_surface(&window) });
@@ -164,7 +167,8 @@ impl Renderer {
     pub fn render(&mut self) {
         match &self.surface {
             Some(surface) => {
-                let start_of_frame = std::time::Instant::now();
+                // let start_of_frame = std::time::Instant::now();
+                let start_of_frame = Instant::now();
                 let frame = surface
                     .get_current_texture()
                     .expect("Failed to acquire next swap chain texture");
@@ -196,11 +200,9 @@ impl Renderer {
                     rpass.set_pipeline(&self.render_pipeline);
                     rpass.draw(0..10, 0..1);
                 }
+                self.draw_text(&format!("FPS {}", self.fps_measurement * 1000.0), 1.0, 22.0, 0xff00ffff);
 
                 {
-                    // self.draw_text("Welp", 1.0, 2.0, 0xffffffff);
-                    self.draw_text(&format!("FPS {}", self.fps_measurement * 1000.0), 1.0, 22.0, 0x00FF00FF);
-                    // Draw the text!
                     self.font_brush
                         .draw_queued(
                             &self.device,
@@ -223,6 +225,7 @@ impl Renderer {
 
                 self.local_pool.run_until_stalled();
                 self.calculate_fps(start_of_frame.elapsed().as_millis() as f32);
+
                 // println!("Presented frame, {}", );
 
                 // frames += 1;
