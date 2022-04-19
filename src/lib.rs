@@ -6,14 +6,13 @@ use mobile_entry_point::mobile_entry_point;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use wgpu::{
-    util::StagingBelt, Backends, BufferDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture,
-    ImageDataLayout, Limits, RequestAdapterOptions, Texture, TextureFormat,
+    Backends, Limits,
 };
 use wgpu_glyph::{GlyphBrushBuilder, Section, Text};
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{UserAttentionType, Window, WindowBuilder},
+    window::{Window, WindowBuilder},
 };
 
 #[cfg(target_os = "android")]
@@ -45,7 +44,7 @@ fn run(
     event_loop: EventLoop<()>,
     window: Window,
     mut local_pool: LocalPool,
-    spawner: LocalSpawner,
+    _spawner: LocalSpawner,
 ) {
     let instance = wgpu::Instance::new(Backends::all());
 
