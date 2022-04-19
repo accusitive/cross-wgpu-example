@@ -1,17 +1,13 @@
-use futures::{
-    executor::{LocalPool, LocalSpawner},
-    task::SpawnExt,
-};
+
 use mobile_entry_point::mobile_entry_point;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-use wgpu::{Backends, Limits};
-use wgpu_glyph::{GlyphBrushBuilder, Section, Text};
+
+
 use winit::{
-    dpi::PhysicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Fullscreen, Window, WindowBuilder},
+    window::{Window, WindowBuilder},
 };
 mod renderer;
 
@@ -65,7 +61,7 @@ fn run(event_loop: EventLoop<()>, window: Window) {
                     }
                 }
                 WindowEvent::CloseRequested => {
-                    println!("Close requested, exiting.")
+                    println!("Close requested, exiting.");
                     *control_flow = ControlFlow::Exit
                 }
                 _ => {}

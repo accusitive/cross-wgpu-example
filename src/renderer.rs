@@ -1,6 +1,6 @@
 use futures::{
     executor::{LocalPool, LocalSpawner},
-    task::{LocalSpawn, SpawnExt},
+    task::{SpawnExt},
 };
 use instant::Instant;
 use wgpu::{
@@ -9,7 +9,7 @@ use wgpu::{
 };
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::{
-    dpi::{PhysicalPosition, PhysicalSize, Size},
+    dpi::{PhysicalSize},
     window::Window,
 };
 
