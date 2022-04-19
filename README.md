@@ -1,8 +1,6 @@
-# winit
-
-This is just the [`winit` window example](https://github.com/rust-windowing/winit/blob/master/examples/window.rs) with very light modifications:
-
-- The `#[mobile_entry_point]` annotation generates all the boilerplate `extern` functions for mobile.
-- Logging on Android is done using `android_logger`.
-
-To run this on desktop, just do `cargo run` like normal! For mobile, use `cargo android run` and `cargo apple run` respectively (or use `cargo android open` and `cargo apple open` to open in Android Studio and Xcode respectively).
+# winit/wgpu stack for desktop, wasm, mobile
+`cargo android run` to run
+`cargo android open` to open in android studio
+`./buildweb.sh` to build for wasm, must use an http server to serve files otherwise browsers wont run wasm
+`python3 -m http.server` to run a simple web server, navigate to `/test.html` to view the app
+`cargo run` to run normally 
