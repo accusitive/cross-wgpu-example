@@ -260,9 +260,7 @@ fn run(
                         local_pool.run_until_stalled();
                         println!("Presented frame, {}", start_of_frame.elapsed().as_millis());
 
-                        // println!("recalled");
                         frames+=1;
-                        window.request_redraw();
                         
                     }
                     None => {}
