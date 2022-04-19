@@ -8,9 +8,10 @@ use wasm_bindgen::prelude::*;
 use wgpu::{Backends, Limits};
 use wgpu_glyph::{GlyphBrushBuilder, Section, Text};
 use winit::{
+    dpi::PhysicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::{Fullscreen, Window, WindowBuilder},
 };
 mod renderer;
 
@@ -36,15 +37,15 @@ fn init_logging() {
 fn run(event_loop: EventLoop<()>, window: Window) {
     let mut renderer = renderer::Renderer::new(&window);
 
-    // let mut frames = 0;
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
         match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                window_id,
-            } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+
+
+            
+
+
             Event::WindowEvent {
                 window_id: _,
                 event: WindowEvent::Resized(size),
@@ -63,9 +64,13 @@ fn run(event_loop: EventLoop<()>, window: Window) {
                         println!("TODO: Screenshot");
                     }
                 }
+                WindowEvent::CloseRequested => {
+                    println!("Close requested, exiting.")
+                    *control_flow = ControlFlow::Exit
+                }
                 _ => {}
             },
-            Event::RedrawEventsCleared | Event::MainEventsCleared | Event::NewEvents(_) => {}
+            // Event::RedrawEventsCleared | Event::MainEventsCleared | Event::NewEvents(_) => {}
             Event::Resumed => {
                 let size = window.inner_size();
                 renderer.resize(size);
@@ -102,6 +107,7 @@ pub fn main_proxy() {
         web_sys::window()
             .and_then(|win| win.document())
             .and_then(|doc| doc.body())
+            // .and_then(|doc| doc.get_elements_by_tag_name(""))
             .and_then(|body| {
                 body.append_child(&web_sys::Element::from(window.canvas()))
                     .ok()

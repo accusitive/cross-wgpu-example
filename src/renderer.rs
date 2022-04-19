@@ -4,8 +4,8 @@ use futures::{
 };
 use instant::Instant;
 use wgpu::{
-    util::StagingBelt, Adapter, Backends, Device, Instance, Limits, Queue, RenderPipeline, Surface,
-    SurfaceConfiguration,
+    util::StagingBelt, Adapter, Backends, Device, Instance, Limits, Queue, RenderPipeline,
+    ShaderModule, Surface, SurfaceConfiguration,
 };
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::{
@@ -23,12 +23,10 @@ const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 impl Renderer {
     fn create_initial_surface(window: &Window, instance: &Instance) -> Option<Surface> {
         #[cfg(target_os = "android")]
-        let mut surface = None;
+        return None;
 
         #[cfg(not(target_os = "android"))]
-        let mut surface = Some(unsafe { instance.create_surface(&window) });
-
-        surface
+        Some(unsafe { instance.create_surface(&window) })
     }
     fn get_default_adapter(instance: &Instance, surface: &Option<Surface>) -> Adapter {
         futures::executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -43,46 +41,13 @@ impl Renderer {
         return Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits());
         Limits::downlevel_defaults().using_resolution(adapter.limits())
     }
-    pub fn new(window: &Window) -> Self {
-        let instance = wgpu::Instance::new(Backends::all());
-
-        let surface = Self::create_initial_surface(window, &instance);
-        let adapter = Self::get_default_adapter(&instance, &surface);
-
-        let (device, queue) = futures::executor::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                features: wgpu::Features::empty(),
-                // limits: wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits()),
-                limits: Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
-            },
-            None,
-        ))
-        .expect("Failed to create device");
-
-        let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-
-        let size = window.inner_size();
-        let mut config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: FORMAT,
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
-        };
-        #[cfg(not(target_os = "android"))]
-        {
-            surface.as_ref().unwrap().configure(&device, &config);
-        }
-        let shader = device.create_shader_module(&wgpu::include_wgsl!("./shader.wgsl"));
-
+    fn create_render_pipeline(device: &Device, shader: &ShaderModule) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[],
             push_constant_ranges: &[],
         });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
@@ -99,9 +64,43 @@ impl Renderer {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
-        });
+        })
+    }
+    pub fn new(window: &Window) -> Self {
+        let instance = wgpu::Instance::new(Backends::all());
 
-        let mut font_brush = Self::setup_fonts(&device);
+        let surface = Self::create_initial_surface(window, &instance);
+        let adapter = Self::get_default_adapter(&instance, &surface);
+
+        let (device, queue) = futures::executor::block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                label: Some("Main device"),
+                features: wgpu::Features::empty(),
+                limits: Self::get_device_limits(&adapter),
+            },
+            None,
+        ))
+        .expect("Failed to create device");
+
+        let staging_belt = wgpu::util::StagingBelt::new(1024);
+
+        let size = window.inner_size();
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: FORMAT,
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Fifo,
+        };
+        #[cfg(not(target_os = "android"))]
+        {
+            surface.as_ref().unwrap().configure(&device, &config);
+        }
+
+        let shader = device.create_shader_module(&wgpu::include_wgsl!("./shader.wgsl"));
+        let render_pipeline = Self::create_render_pipeline(&device, &shader);
+
+        let font_brush = Self::setup_fonts(&device);
         let local_pool = futures::executor::LocalPool::new();
         let local_spawner = local_pool.spawner();
 
@@ -200,7 +199,12 @@ impl Renderer {
                     rpass.set_pipeline(&self.render_pipeline);
                     rpass.draw(0..10, 0..1);
                 }
-                self.draw_text(&format!("FPS {}", self.fps_measurement * 1000.0), 1.0, 22.0, 0xff00ffff);
+                self.draw_text(
+                    &format!("FPS {}", self.fps_measurement * 1000.0),
+                    1.0,
+                    22.0,
+                    0xff00ffff,
+                );
 
                 {
                     self.font_brush
