@@ -7,9 +7,11 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Fullscreen, Window, WindowBuilder},
 };
+mod camera;
+mod gui;
 mod renderer;
 mod vertex;
-
+mod model;
 #[cfg(target_os = "android")]
 fn init_logging() {
     android_logger::init_once(
@@ -30,12 +32,14 @@ fn init_logging() {
 }
 
 fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
-    let mut renderer = renderer::Renderer::new(&window, event_loop.create_proxy());
+    let mut renderer = renderer::TropicRenderer::new(&window, event_loop.create_proxy());
 
     event_loop.run(move |event, _, control_flow| {
         renderer.egui_platform.handle_event(&event);
-        println!("Letting egui handle {:?}", event);
         *control_flow = ControlFlow::Wait;
+        if let Event::WindowEvent { event, ..} = &event {
+            renderer.camera_controller.process_events(&event);
+        }
         match event {
             Event::WindowEvent {
                 window_id: _,
@@ -45,16 +49,24 @@ fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
                 window.request_redraw();
             }
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput { input, .. } => {
-                    if let KeyboardInput {
+                WindowEvent::KeyboardInput { input, .. } => match input {
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::F11),
+                        state: ElementState::Released,
+                        ..
+                    } => match window.fullscreen() {
+                        Some(_) => window.set_fullscreen(None),
+                        None => window.set_fullscreen(Some(Fullscreen::Borderless(None))),
+                    },
+                    KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::F2),
                         state: ElementState::Released,
                         ..
-                    } = input
-                    {
-                        println!("TODO: Screenshot");
+                    } => {
+                        println!("TODO: screenshot")
                     }
-                }
+                    _ => {}
+                },
                 WindowEvent::CloseRequested => {
                     println!("Close requested, exiting.");
                     *control_flow = ControlFlow::Exit
@@ -80,10 +92,13 @@ fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
                 renderer.suspend();
             }
             Event::RedrawRequested(_) => {
-                println!("REDRAWING");
                 #[cfg(not(target_os = "android"))]
                 renderer.prepare_surface(&window);
                 renderer.render(&window);
+                // for smooth fps
+                #[cfg(target_arch="wasm32")]
+                window.request_redraw();
+
                 // window.request_redraw();
             }
 
@@ -123,7 +138,7 @@ fn mobile_main() {
 
     let window = WindowBuilder::new()
         .with_title("A fantastic window!")
-        .with_fullscreen(Some(Fullscreen::Borderless(None)))
+        // .with_fullscreen(Some(Fullscreen::Borderless(None)))
         .build(&event_loop)
         .unwrap();
 

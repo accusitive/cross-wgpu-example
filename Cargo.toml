@@ -29,10 +29,11 @@ egui = "0.17"
 epi = "0.17"
 # egui_winit_platform = {path = "./egui_winit_platform", features=["x11"]}
 egui_winit_platform = "0.14"
-egui_wgpu_backend = "0.17.0"
+# egui_wgpu_backend = "0.17.0"
+egui_wgpu_backend = {git = "https://github.com/hasenbanck/egui_wgpu_backend/"}
 egui_demo_lib = "0.17"
 epaint = "0.16"
-
+tobj = "3.2.2"
 # wgpu_glyph = {path="./wgpu_glyph"}
 
 [target.'cfg(target_os = "android")'.dependencies]
