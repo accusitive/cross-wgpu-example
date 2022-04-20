@@ -1,15 +1,14 @@
-
 use mobile_entry_point::mobile_entry_point;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::{Window, WindowBuilder, Fullscreen},
 };
 mod renderer;
+mod vertex;
 
 #[cfg(target_os = "android")]
 fn init_logging() {
@@ -30,18 +29,14 @@ fn init_logging() {
     // simple_logger::SimpleLogger::new().init().unwrap();
 }
 
-fn run(event_loop: EventLoop<()>, window: Window) {
-    let mut renderer = renderer::Renderer::new(&window);
+fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
+    let mut renderer = renderer::Renderer::new(&window, event_loop.create_proxy());
 
     event_loop.run(move |event, _, control_flow| {
+        renderer.egui_platform.handle_event(&event);
+        println!("Letting egui handle {:?}", event);
         *control_flow = ControlFlow::Wait;
-
         match event {
-
-
-            
-
-
             Event::WindowEvent {
                 window_id: _,
                 event: WindowEvent::Resized(size),
@@ -66,7 +61,14 @@ fn run(event_loop: EventLoop<()>, window: Window) {
                 }
                 _ => {}
             },
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            }
             // Event::RedrawEventsCleared | Event::MainEventsCleared | Event::NewEvents(_) => {}
+             Event::UserEvent(renderer::Event::RequestRedraw) => {
+                window.request_redraw();
+                println!("User event redraw")
+            }
             Event::Resumed => {
                 let size = window.inner_size();
                 renderer.resize(size);
@@ -78,9 +80,10 @@ fn run(event_loop: EventLoop<()>, window: Window) {
                 renderer.suspend();
             }
             Event::RedrawRequested(_) => {
+                println!("REDRAWING");
                 #[cfg(not(target_os = "android"))]
                 renderer.prepare_surface(&window);
-                renderer.render();
+                renderer.render(&window);
                 // window.request_redraw();
             }
 
@@ -91,7 +94,7 @@ fn run(event_loop: EventLoop<()>, window: Window) {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main_proxy() {
     init_logging();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::with_user_event();
 
     let window = WindowBuilder::new()
         .with_title("A fantastic window!")
@@ -116,10 +119,11 @@ pub fn main_proxy() {
 #[mobile_entry_point]
 fn mobile_main() {
     init_logging();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::with_user_event();
 
     let window = WindowBuilder::new()
         .with_title("A fantastic window!")
+        .with_fullscreen(Some(Fullscreen::Borderless(None)))
         .build(&event_loop)
         .unwrap();
 
