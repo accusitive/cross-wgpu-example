@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder, Fullscreen},
+    window::{Fullscreen, Window, WindowBuilder},
 };
 mod renderer;
 mod vertex;
@@ -65,7 +65,7 @@ fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
                 window.request_redraw();
             }
             // Event::RedrawEventsCleared | Event::MainEventsCleared | Event::NewEvents(_) => {}
-             Event::UserEvent(renderer::Event::RequestRedraw) => {
+            Event::UserEvent(renderer::Event::RequestRedraw) => {
                 window.request_redraw();
                 println!("User event redraw")
             }

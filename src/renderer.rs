@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use egui::{FontDefinitions, FullOutput};
+use egui::FullOutput;
 use egui_demo_lib::WrapApp;
 use egui_wgpu_backend::ScreenDescriptor;
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -13,13 +13,13 @@ use futures::{
 use instant::Instant;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt, StagingBelt},
-    Adapter, Backends, Buffer, BufferDescriptor, BufferUsages, Device, Instance, Limits, Queue,
-    RenderPass, RenderPipeline, ShaderModule, Surface, SurfaceConfiguration,
+    Adapter, Backends, Buffer, BufferUsages, Device, Instance, Limits, Queue, RenderPipeline,
+    ShaderModule, Surface, SurfaceConfiguration,
 };
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window};
 
-use crate::vertex::{self, Vertex, VERTICES};
+use crate::vertex::{Vertex, VERTICES};
 
 #[cfg(target_os = "android")]
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
@@ -125,11 +125,11 @@ impl Renderer {
             usage: BufferUsages::INDEX,
         });
         let platform = Self::setup_egui(window, &size);
-        let mut egui_rpass = egui_wgpu_backend::RenderPass::new(&device, FORMAT, 1);
-        let mut demo_app = egui_demo_lib::WrapApp::default();
-    
+        let egui_rpass = egui_wgpu_backend::RenderPass::new(&device, FORMAT, 1);
+        let demo_app = egui_demo_lib::WrapApp::default();
+
         let start_time = Instant::now();
-        let mut previous_frame_time = None;
+        let previous_frame_time = None;
 
         Self {
             instance,
@@ -336,15 +336,15 @@ impl Renderer {
                     });
                     self.demo_app
                         .update(&self.egui_platform.context(), &mut frame);
-                    
+
                     // let (_output, paint_commands) = self.egui_platform.end_frame(Some(&window));
-                    let FullOutput{
+                    let FullOutput {
                         platform_output: _output,
                         shapes: paint_commands,
                         textures_delta,
                         ..
                     } = self.egui_platform.end_frame(Some(&window));
-                    
+
                     let paint_jobs = self.egui_platform.context().tessellate(paint_commands);
                     let frame_time = (Instant::now() - egui_start).as_secs_f64() as f32;
                     self.previous_frame_time = Some(frame_time);
@@ -355,20 +355,20 @@ impl Renderer {
                         scale_factor: window.scale_factor() as f32,
                     };
                     // self.egui_rpass.
-                    self.egui_rpass.add_textures(&self.device, &self.queue, &textures_delta).expect("Couldn't add textures to EGUI");
-                    // self.egui_rpass.update_user_textures(&self.device, &self.queue);
-                    self.egui_rpass.update_buffers(&self.device, &self.queue, &paint_jobs, &screen_descriptor);
-
                     self.egui_rpass
-                    .execute(
-                        &mut encoder,
-                        &view,
+                        .add_textures(&self.device, &self.queue, &textures_delta)
+                        .expect("Couldn't add textures to EGUI");
+                    // self.egui_rpass.update_user_textures(&self.device, &self.queue);
+                    self.egui_rpass.update_buffers(
+                        &self.device,
+                        &self.queue,
                         &paint_jobs,
                         &screen_descriptor,
-                        None,
-                    )
-                    .unwrap();
-                    
+                    );
+
+                    self.egui_rpass
+                        .execute(&mut encoder, &view, &paint_jobs, &screen_descriptor, None)
+                        .unwrap();
                 }
 
                 self.queue.submit(Some(encoder.finish()));
@@ -426,9 +426,5 @@ impl epi::backend::RepaintSignal for ExampleRepaintSignal {
     }
 }
 
-unsafe impl Sync for ExampleRepaintSignal {
-
-}
-unsafe impl Send for ExampleRepaintSignal {
-    
-}
+unsafe impl Sync for ExampleRepaintSignal {}
+unsafe impl Send for ExampleRepaintSignal {}
