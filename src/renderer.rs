@@ -1,5 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, cell::RefCell};
 
+use cgmath::vec3;
 use egui::FullOutput;
 use egui_demo_lib::WrapApp;
 use egui_wgpu_backend::ScreenDescriptor;
@@ -15,8 +16,8 @@ use instant::Instant;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt, StagingBelt},
     Adapter, Backends, BindGroup, BindGroupLayout, Buffer, BufferUsages, Device, Face, Features,
-    Instance, Limits, PrimitiveState, Queue, RenderPipeline, ShaderModule, Surface,
-    SurfaceConfiguration,
+    Instance, Limits, PrimitiveState, Queue, RenderPassDepthStencilAttachment, RenderPipeline,
+    ShaderModule, Surface, SurfaceConfiguration,
 };
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window};
@@ -24,8 +25,9 @@ use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window};
 use crate::{
     camera::{Camera, CameraController},
     gui::{self, TropicGui},
-    model::{Faces, Model, RenderModel, self},
-    vertex::{Vertex, VERTICES},
+    model::{self, Faces, Model, RenderModel},
+    texture::{self, Texture},
+    vertex::Vertex, chunk::Chunk,
 };
 
 #[cfg(target_os = "android")]
@@ -83,7 +85,13 @@ impl TropicRenderer {
                 targets: &[FORMAT.into()],
             }),
             primitive: primitive.unwrap_or_default(),
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less, // 1.
+                stencil: wgpu::StencilState::default(),     // 2.
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         })
@@ -94,7 +102,7 @@ impl TropicRenderer {
 
         Features::POLYGON_MODE_LINE
     }
-    pub fn new(window: &Window, event_loop_proxy: EventLoopProxy<Event>) -> Self {
+    pub fn new(window: &Window, event_loop_proxy: EventLoopProxy<Event>, chunk: &mut Chunk) -> Self {
         let instance = wgpu::Instance::new(Backends::all());
 
         let surface = Self::create_initial_surface(window, &instance);
@@ -158,9 +166,40 @@ impl TropicRenderer {
             }],
             label: Some("camera_bind_group"),
         });
+
         let camera_controller = CameraController::new(0.2);
-        let render_pipeline =
-            Self::create_render_pipeline(&device, &shader, vec![&camera_bind_group_layout], None);
+        let demo_app = gui::TropicGui { wireframe: false, camera_speed: 0.2};
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        // This should match the filterable field of the
+                        // corresponding Texture entry above.
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+        let render_pipeline = Self::create_render_pipeline(
+            &device,
+            &shader,
+            vec![&camera_bind_group_layout, &texture_bind_group_layout],
+            None,
+        );
         #[cfg(target_arch = "wasm32")]
         let wire_frame_render_pipeline = None;
 
@@ -172,7 +211,7 @@ impl TropicRenderer {
         let wire_frame_render_pipeline = Some(Self::create_render_pipeline(
             &device,
             &shader,
-            vec![&camera_bind_group_layout],
+            vec![&camera_bind_group_layout, &texture_bind_group_layout],
             Some(wireframe_primitive),
         ));
 
@@ -180,20 +219,20 @@ impl TropicRenderer {
         let local_pool = futures::executor::LocalPool::new();
         let local_spawner = local_pool.spawner();
 
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: BufferUsages::VERTEX,
-        });
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Index buffer"),
-            contents: bytemuck::cast_slice::<u16, _>(&[0, 1, 2, 2, 3, 0]),
-            usage: BufferUsages::INDEX,
-        });
+        // let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        //     label: Some("Vertex Buffer"),
+        //     contents: bytemuck::cast_slice(VERTICES),
+        //     usage: BufferUsages::VERTEX,
+        // });
+        // let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        //     label: Some("Index buffer"),
+        //     contents: bytemuck::cast_slice::<u16, _>(&[0, 1, 2, 2, 3, 0]),
+        //     usage: BufferUsages::INDEX,
+        // });
         let platform = Self::setup_egui(window, &size);
         let egui_rpass = egui_wgpu_backend::RenderPass::new(&device, FORMAT, 1);
         // let demo_app = egui_demo_lib::WrapApp::default();
-        let demo_app = gui::TropicGui { wireframe: false };
+        
 
         let start_time = Instant::now();
         let previous_frame_time = None;
@@ -207,6 +246,132 @@ impl TropicRenderer {
             //         push_constant_ranges: &[],
             //     });
         }
+        let mut textures = vec![];
+        {
+            let stone = Texture::from_bytes(
+                &device,
+                &queue,
+                include_bytes!("../assets/stone.png"),
+                "stone",
+            )
+            .unwrap();
+            let stone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&stone.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&stone.sampler),
+                    },
+                ],
+                label: Some("diffuse_bind_group"),
+            });
+            textures.push(Arc::new(stone_bind_group));
+            let dirt = Texture::from_bytes(
+                &device,
+                &queue,
+                include_bytes!("../assets/dirt.png"),
+                "dirt",
+            )
+            .unwrap();
+            let dirt_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&dirt.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&dirt.sampler),
+                    },
+                ],
+                label: Some("diffuse_bind_group"),
+            });
+            textures.push(Arc::new(dirt_bind_group));
+
+            let end_stone = Texture::from_bytes(
+                &device,
+                &queue,
+                include_bytes!("../assets/end_stone.png"),
+                "dirt",
+            )
+            .unwrap();
+            let end_stone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&end_stone.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&end_stone.sampler),
+                    },
+                ],
+                label: Some("diffuse_bind_group"),
+            });
+            textures.push(Arc::new(end_stone_bind_group));
+        }
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
+        let w = 64;
+
+        // let positions = (-w..w).map(|i| (-w, ..w).map(|j| vec3(k as f32, 0.0, 0.0)).collect::<Vec<_>>()).collect::<Vec<_>>();
+        // let mut positions = vec![];
+        // for i in -w..w {
+        //     for j in -w..w {
+        //         positions.push(vec3(i as f32, 0.0, j as f32));
+        //     }
+        // }
+        // let m = Model::new(
+        //     &device,
+        //     &Faces {
+        //         top: true,
+        //         ..Default::default()
+        //     },
+        //     positions,
+        //     textures[0].clone(),
+        // );
+        // let mut positions = vec![];
+        // for i in -w..w {
+        //     for j in -w..w {
+        //         positions.push(vec3(i as f32, 1.0, j as f32));
+        //     }
+        // }
+        // let m2 = Model::new(
+        //     &device,
+        //     &Faces {
+        //         top: true,
+        //         ..Default::default()
+        //     },
+        //     positions,
+        //     textures[2].clone(),
+        // );
+        
+        // let models = vec![m, m2];
+        // let mut models = vec![];
+        let models = chunk.models(&device, textures[0].clone());
+        // for i in -w..w {
+        //     for j in -w..w {
+        //         models.push(Model::new(
+        //             &device,
+        //             &Faces {
+        //                 top: true,
+        //                 bottom: false,
+        //                 north: j == w-1,
+        //                 south: j == -w,
+        //                 east: i == w-1,
+        //                 west: i == -w,
+        //             },
+        //             vec3(i as f32, 0.0, j as f32),
+        //             textures[2].clone(),
+        //         ));
+        //     }
+        // }
         Self {
             instance,
             device,
@@ -222,8 +387,8 @@ impl TropicRenderer {
             local_spawner,
             fps_smoothing: 0.9,
             fps_measurement: 0.0,
-            vertex_buffer,
-            index_buffer,
+            // vertex_buffer,
+            // index_buffer,
             egui_rpass,
             tropic_gui: demo_app,
             start_time,
@@ -236,6 +401,9 @@ impl TropicRenderer {
             camera_bind_group,
             camera_buffer,
             camera_controller,
+            textures: textures,
+            depth_texture,
+            models: models,
         }
     }
     pub fn resume(&mut self, window: &Window) {
@@ -256,6 +424,8 @@ impl TropicRenderer {
                 .configure(&self.device, &self.config);
             // self.request_redraw();
         }
+        self.depth_texture =
+            texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
     }
     fn setup_fonts(device: &Device) -> GlyphBrush<()> {
         let inconsolata = wgpu_glyph::ab_glyph::FontArc::try_from_slice(include_bytes!(
@@ -319,6 +489,7 @@ impl TropicRenderer {
         );
     }
     fn update(&mut self) {
+        self.camera_controller.speed = self.tropic_gui.camera_speed;
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
@@ -331,30 +502,6 @@ impl TropicRenderer {
         self.update();
         self.egui_platform
             .update_time(self.start_time.elapsed().as_secs_f64());
-        let m = Model::new(
-            &self.device,
-            &Faces {
-                north: true,
-                south: true,
-                top: true,
-                bottom: true,
-                east: false,
-                west: true,
-            },
-            0.0
-        );
-        let m2 = Model::new(
-            &self.device,
-            &Faces {
-                north: true,
-                south: true,
-                top: true,
-                bottom: true,
-                east: true,
-                west: false,
-            },
-            1.0
-        );
         match &self.surface {
             Some(surface) => {
                 // let start_of_frame = std::time::Instant::now();
@@ -388,7 +535,14 @@ impl TropicRenderer {
                                 store: true,
                             },
                         }],
-                        depth_stencil_attachment: None,
+                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                            view: &self.depth_texture.view,
+                            depth_ops: Some(wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(1.0),
+                                store: true,
+                            }),
+                            stencil_ops: None,
+                        }),
                     });
                     if self.tropic_gui.wireframe {
                         render_pass
@@ -404,9 +558,16 @@ impl TropicRenderer {
                     // render_pass.draw(0..3, 0..1);
 
                     render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-                    render_pass.render_model(&m);
-                    render_pass.render_model(&m2);
-
+                    // render_pass.render_model(&m);
+                    // render_pass.render_model(&m2);
+                    // render_pass.render_model(&m3);
+                    for m in &self.models {
+                        render_pass.render_model(&m);
+                    }
+                    // for m in &self.models {
+                    //     render_pass.render_model(&m);
+                    //     // println!("rendered model");
+                    // }
                     // m.render(&mut render_pass, &mut self.camera_bind_group);
                 }
                 self.draw_hud();
@@ -510,7 +671,7 @@ fn create_camera(config: &SurfaceConfiguration) -> Camera {
         aspect: config.width as f32 / config.height as f32,
         fovy: 45.0,
         znear: 0.1,
-        zfar: 100.0,
+        zfar: 2048.0,
     };
     camera
 }
@@ -531,8 +692,8 @@ pub struct TropicRenderer {
     queue: Queue,
     fps_smoothing: f32,
     fps_measurement: f32,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
+    // vertex_buffer: Buffer,
+    // index_buffer: Buffer,
     egui_rpass: egui_wgpu_backend::RenderPass,
     tropic_gui: TropicGui,
     start_time: Instant,
@@ -545,6 +706,9 @@ pub struct TropicRenderer {
     camera_buffer: Buffer,
     camera_bind_group: BindGroup,
     pub camera_controller: CameraController,
+    textures: Vec<Arc<BindGroup>>,
+    depth_texture: Texture,
+    models: Vec<Model>,
 }
 #[derive(Debug, Clone, Copy)]
 pub enum Event {

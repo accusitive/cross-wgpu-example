@@ -1,28 +1,48 @@
+use std::sync::Arc;
+
+use cgmath::{Matrix3, Vector3};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, Buffer, BufferUsages, CommandEncoder, Device, RenderPass, VertexBufferLayout,
 };
 
-use crate::vertex::{self, Vertex};
-
+use crate::{
+    texture::Texture,
+    vertex::{self, Vertex},
+};
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Faces {
-    pub north: bool,
-    pub south: bool,
     pub top: bool,
     pub bottom: bool,
+    pub north: bool,
+    pub south: bool,
     pub east: bool,
     pub west: bool,
+}
+impl Faces {
+    pub fn all() -> Self {
+        Faces {
+            north: true,
+            south: true,
+            top: true,
+            bottom: true,
+            east: true,
+            west: true,
+        }
+    }
 }
 pub struct Model {
     vertex_buffer: Buffer,
     instance_buffer: Buffer,
-    vert_count: u32,
     index_buffer: Buffer,
     indexes: u32,
-    position: cgmath::Vector3<f32>,
+    positions: Vec<Vector3<f32>>,
+    // position: cgmath::Vector3<f32>,
+    bind_group: Arc<BindGroup>,
+    instances: u32
 }
 impl Model {
-    fn get_vertices(f: &Faces) -> (Vec<Vertex>, Vec<u16>) {
+    fn get_verts_and_indexs(f: &Faces) -> (Vec<Vertex>, Vec<u16>) {
         let mut v = vec![];
         let mut i: Vec<u16> = vec![];
         let mut faces_added = 0;
@@ -32,21 +52,21 @@ impl Model {
             faces_added += 1;
             ind
         };
-        if f.top {
-            v.extend(vertex::top_face());
-            i.extend(indexes());
-        }
-        if f.bottom {
-            v.extend(vertex::bottom());
-            i.extend(indexes());
-            println!("{:?}", i);
-        }
         if f.north {
             v.extend(vertex::north());
             i.extend(indexes());
         }
         if f.south {
             v.extend(vertex::south());
+            i.extend(indexes());
+            println!("{:?}", i);
+        }
+        if f.top {
+            v.extend(vertex::top());
+            i.extend(indexes());
+        }
+        if f.bottom {
+            v.extend(vertex::bottom());
             i.extend(indexes());
         }
         if f.east {
@@ -60,15 +80,22 @@ impl Model {
 
         (v, i)
     }
-    pub fn new(device: &Device, f: &Faces, x: f32) -> Self {
-        let (verts, indexes) = Self::get_vertices(f);
-        let position = cgmath::vec3(x, 1.0, 1.0);
-        let q = cgmath::Matrix4::from_translation(position);
-        let p: &[[f32; 4]; 4] = &q.into();
-        // let p: &[f32; 3] = &position.into();
-        // let ir = InstanceRaw{
-        //     model: position.into()
-        // };
+    
+    pub fn new(
+        device: &Device,
+        f: &Faces,
+        positions: Vec<Vector3<f32>>,
+        bind_group: Arc<BindGroup>,
+    ) -> Self {
+        let (verts, indexes) = Self::get_verts_and_indexs(f);
+        let mut i: Vec<f32> = vec![];
+        for position in &positions {
+            let mat4 = cgmath::Matrix4::from_translation(*position);
+            let mat4_bytes: &[[f32; 4]; 4] = &mat4.into();
+            let mat4b: &[f32] = bytemuck::cast_slice(mat4_bytes);
+            i.extend(mat4b);
+        }
+
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&verts),
@@ -81,17 +108,19 @@ impl Model {
         });
         let instance_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(p),
+            contents: bytemuck::cast_slice(&i),
             usage: BufferUsages::VERTEX,
         });
-        println!("{:#?}", p);
+
+        // println!("{:#?}", mat4_bytes);
         Self {
             vertex_buffer,
-            vert_count: verts.len() as u32,
             index_buffer,
             indexes: indexes.len() as u32,
-            position,
-            instance_buffer
+            instances: positions.len() as u32,
+            positions,
+            instance_buffer,
+            bind_group,
         }
     }
     // pub   fn render<'a> (&self, render_pass: &'a mut RenderPass<'a>, camera_bind_group: &'a mut BindGroup) {
@@ -103,24 +132,30 @@ impl Model {
 }
 pub trait RenderModel<'r> {
     fn render_model(&mut self, m: &'r Model);
+    fn render_models(&mut self, m: Vec<Model>);
 }
 impl<'a, 'b> RenderModel<'b> for RenderPass<'a>
 where
     'b: 'a,
 {
     fn render_model(&mut self, m: &'b Model) {
+        self.set_bind_group(1, &m.bind_group, &[]);
         self.set_vertex_buffer(0, m.vertex_buffer.slice(..));
         self.set_vertex_buffer(1, m.instance_buffer.slice(..));
         self.set_index_buffer(m.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         // self.draw(0..m.vert_count, 0..1);
-        self.draw_indexed(0..m.indexes, 0, 0..1);
+        self.draw_indexed(0..m.indexes, 0, 0..m.instances);
+    }
+
+    fn render_models(&mut self, m: Vec<Model>) {
+        // let i =
     }
 }
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
-    model: [[f32; 4]; 4]
+    model: [[f32; 4]; 4],
 }
 pub fn get_instance_buffer_layout<'a>() -> VertexBufferLayout<'a> {
     wgpu::VertexBufferLayout {

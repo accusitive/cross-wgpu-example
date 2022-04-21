@@ -15,26 +15,22 @@ path = "gen/bin/desktop.rs"
 mobile-entry-point = "0.1.0"
 winit = "0.26.0"
 wgpu = "0.12.0"
-# wgpu = {path = "./wgpu/wgpu"}
 log = "0.4.11"
-# pollster = "0.2.5"
 futures = "0.3.21"
 cfg-if = "1"
 wgpu_glyph = "0.16.0"
-image = "0.24.1"
+image = {version = "0.24.1", features= ["png", "jpeg"], default-features = false}
 instant = "0.1.12"
 bytemuck = {version = "1.9.1", features=["derive"]}
 cgmath = "0.18"
 egui = "0.17"
 epi = "0.17"
-# egui_winit_platform = {path = "./egui_winit_platform", features=["x11"]}
 egui_winit_platform = "0.14"
-# egui_wgpu_backend = "0.17.0"
 egui_wgpu_backend = {git = "https://github.com/hasenbanck/egui_wgpu_backend/"}
 egui_demo_lib = "0.17"
 epaint = "0.16"
 tobj = "3.2.2"
-# wgpu_glyph = {path="./wgpu_glyph"}
+noise = "0.7.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.9.0"

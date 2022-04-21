@@ -1,4 +1,6 @@
+use chunk::{Block, Chunk};
 use mobile_entry_point::mobile_entry_point;
+use noise::{Fbm, NoiseFn};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -8,10 +10,13 @@ use winit::{
     window::{Fullscreen, Window, WindowBuilder},
 };
 mod camera;
+mod chunk;
 mod gui;
-mod renderer;
-mod vertex;
 mod model;
+mod renderer;
+mod texture;
+mod vertex;
+
 #[cfg(target_os = "android")]
 fn init_logging() {
     android_logger::init_once(
@@ -32,12 +37,35 @@ fn init_logging() {
 }
 
 fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
-    let mut renderer = renderer::TropicRenderer::new(&window, event_loop.create_proxy());
+    let mut chunk = Chunk::new();
+    let fbm = Fbm::new();
+
+    // println!("{}",val);
+    for i in 0..chunk::WIDTH {
+        // for j in 0..((val.abs()*(chunk::HEIGHT as f64)) as i64) {
+        for k in 0..chunk::LENGTH {
+            let val = (fbm.get([i as f64 / 256.0, k as f64 / 256.0, 1.0]) * 6.0 + 5.0).abs();
+            println!("{}", val);
+
+            for j in 0..(val as i64) {
+                chunk.set_block(Block {
+                    x: i,
+                    y: j,
+                    z: k,
+                    kind: chunk::BlockKind::Stone,
+                });
+            }
+        }
+        // }
+    }
+
+    let mut renderer =
+        renderer::TropicRenderer::new(&window, event_loop.create_proxy(), &mut chunk);
 
     event_loop.run(move |event, _, control_flow| {
         renderer.egui_platform.handle_event(&event);
         *control_flow = ControlFlow::Wait;
-        if let Event::WindowEvent { event, ..} = &event {
+        if let Event::WindowEvent { event, .. } = &event {
             renderer.camera_controller.process_events(&event);
         }
         match event {
@@ -96,7 +124,7 @@ fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
                 renderer.prepare_surface(&window);
                 renderer.render(&window);
                 // for smooth fps
-                #[cfg(target_arch="wasm32")]
+                #[cfg(target_arch = "wasm32")]
                 window.request_redraw();
 
                 // window.request_redraw();
