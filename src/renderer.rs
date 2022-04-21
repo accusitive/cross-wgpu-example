@@ -1,4 +1,7 @@
-use std::{sync::{Arc, Mutex}, cell::RefCell};
+use std::{
+    cell::RefCell,
+    sync::{Arc, Mutex},
+};
 
 use cgmath::vec3;
 use egui::FullOutput;
@@ -24,10 +27,11 @@ use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window};
 
 use crate::{
     camera::{Camera, CameraController},
+    chunk::Chunk,
     gui::{self, TropicGui},
     model::{self, Faces, Model, RenderModel},
     texture::{self, Texture},
-    vertex::Vertex, chunk::Chunk,
+    vertex::Vertex,
 };
 
 #[cfg(target_os = "android")]
@@ -102,7 +106,11 @@ impl TropicRenderer {
 
         Features::POLYGON_MODE_LINE
     }
-    pub fn new(window: &Window, event_loop_proxy: EventLoopProxy<Event>, chunk: &mut Chunk) -> Self {
+    pub fn new(
+        window: &Window,
+        event_loop_proxy: EventLoopProxy<Event>,
+        chunks: Vec<Chunk>,
+    ) -> Self {
         let instance = wgpu::Instance::new(Backends::all());
 
         let surface = Self::create_initial_surface(window, &instance);
@@ -168,7 +176,10 @@ impl TropicRenderer {
         });
 
         let camera_controller = CameraController::new(0.2);
-        let demo_app = gui::TropicGui { wireframe: false, camera_speed: 0.2};
+        let demo_app = gui::TropicGui {
+            wireframe: false,
+            camera_speed: 0.2,
+        };
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -232,7 +243,6 @@ impl TropicRenderer {
         let platform = Self::setup_egui(window, &size);
         let egui_rpass = egui_wgpu_backend::RenderPass::new(&device, FORMAT, 1);
         // let demo_app = egui_demo_lib::WrapApp::default();
-        
 
         let start_time = Instant::now();
         let previous_frame_time = None;
@@ -351,10 +361,10 @@ impl TropicRenderer {
         //     positions,
         //     textures[2].clone(),
         // );
-        
+
         // let models = vec![m, m2];
         // let mut models = vec![];
-        let models = chunk.models(&device, textures[0].clone());
+        let models = chunks.iter().map(|c| c.models(&device, textures[0].clone())).flatten().collect::<Vec<_>>();
         // for i in -w..w {
         //     for j in -w..w {
         //         models.push(Model::new(
@@ -550,25 +560,10 @@ impl TropicRenderer {
                     } else {
                         render_pass.set_pipeline(&self.render_pipeline);
                     }
-                    // render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                    // render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-
-                    // // render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                    // // render_pass.draw_indexed(0..6, 0, 0..1);
-                    // render_pass.draw(0..3, 0..1);
-
                     render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-                    // render_pass.render_model(&m);
-                    // render_pass.render_model(&m2);
-                    // render_pass.render_model(&m3);
                     for m in &self.models {
                         render_pass.render_model(&m);
                     }
-                    // for m in &self.models {
-                    //     render_pass.render_model(&m);
-                    //     // println!("rendered model");
-                    // }
-                    // m.render(&mut render_pass, &mut self.camera_bind_group);
                 }
                 self.draw_hud();
 

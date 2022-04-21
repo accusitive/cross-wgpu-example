@@ -10,6 +10,7 @@ pub const HEIGHT: i64 = 64;
 pub const LENGTH: i64 = 256;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockKind {
+    None,
     Air,
     Stone,
 }
@@ -23,22 +24,28 @@ pub struct Block {
 
 pub struct Chunk {
     blocks: Vec<Block>,
+    pub chunk_x: i64,
+    pub chunk_y: i64,
+    pub chunk_z: i64,
 }
 impl Chunk {
-    pub fn new() -> Self {
+    pub fn new(x: i64, y: i64, z: i64) -> Self {
         Self {
             // blocks: vec![Block::{}; WIDTH * HEIGHT * LENGTH],
             blocks: (0..(WIDTH * HEIGHT * LENGTH))
                 .map(|i| {
-                    let (x, y, z) = Self::unflatten(i);
+                    let (bx, by, bz) = Self::unflatten(i);
                     Block {
                         kind: BlockKind::Air,
-                        x,
-                        y,
-                        z,
+                        x: bx,
+                        y: by,
+                        z: bz,
                     }
                 })
                 .collect::<Vec<Block>>(),
+            chunk_x: x,
+            chunk_y: y,
+            chunk_z: z,
         }
     }
     pub fn get_block<'a>(&'a self, x: i64, y: i64, z: i64) -> Option<&'a Block> {
@@ -61,32 +68,32 @@ impl Chunk {
     fn block_north_of(&self, b: &Block) -> BlockKind {
         self.get_block(b.x, b.y, b.z + 1)
             .map(|s| s.kind)
-            .unwrap_or(BlockKind::Air)
+            .unwrap_or(BlockKind::None)
     }
     fn block_south_of(&self, b: &Block) -> BlockKind {
         self.get_block(b.x, b.y, b.z - 1)
             .map(|s| s.kind)
-            .unwrap_or(BlockKind::Air)
+            .unwrap_or(BlockKind::None)
     }
     fn block_east_of(&self, b: &Block) -> BlockKind {
         self.get_block(b.x + 1, b.y, b.z)
             .map(|s| s.kind)
-            .unwrap_or(BlockKind::Air)
+            .unwrap_or(BlockKind::None)
     }
     fn block_west_of(&self, b: &Block) -> BlockKind {
         self.get_block(b.x - 1, b.y, b.z)
             .map(|s| s.kind)
-            .unwrap_or(BlockKind::Air)
+            .unwrap_or(BlockKind::None)
     }
     fn block_above(&self, b: &Block) -> BlockKind {
         self.get_block(b.x, b.y + 1, b.z)
             .map(|s| s.kind)
-            .unwrap_or(BlockKind::Air)
+            .unwrap_or(BlockKind::None)
     }
     fn block_below(&self, b: &Block) -> BlockKind {
         self.get_block(b.x, b.y - 1, b.z)
             .map(|s| s.kind)
-            .unwrap_or(BlockKind::Air)
+            .unwrap_or(BlockKind::None)
     }
     pub fn models(&self, device: &Device, bind_group: Arc<BindGroup>) -> Vec<Model> {
         // let mut models = vec![];
@@ -95,12 +102,12 @@ impl Chunk {
         for block in &self.blocks {
             if let BlockKind::Air = block.kind {
             } else {
-                let north = !(self.block_north_of(block) != BlockKind::Air);
-                let south = !(self.block_south_of(block) != BlockKind::Air);
-                let east = !(self.block_east_of(block) != BlockKind::Air);
-                let west = !(self.block_west_of(block) != BlockKind::Air);
-                let above = !(self.block_above(block) != BlockKind::Air);
-                let below = !(self.block_below(block) != BlockKind::Air);
+                let north = (self.block_north_of(block) == BlockKind::Air);
+                let south = (self.block_south_of(block) == BlockKind::Air);
+                let east = (self.block_east_of(block) == BlockKind::Air);
+                let west = (self.block_west_of(block) == BlockKind::Air);
+                let above = (self.block_above(block) == BlockKind::Air);
+                let below = (self.block_below(block) == BlockKind::Air);
                 let f = Faces {
                     north,
                     south,
@@ -115,7 +122,7 @@ impl Chunk {
                 //     vec![vec3(block.x as f32, block.y as f32, block.z as f32)],
                 //     bind_group.clone(),
                 // );
-                let pos = vec3(block.x as f32, block.y as f32, block.z as f32);
+                let pos = vec3(block.x * self.chunk_x as f32 , block.y as f32, block.z as f32);
                 hm.entry(f).or_insert(vec![]).push(pos);
                 // hm.insert(f, );
                 // models.push(Model::new(
@@ -126,7 +133,8 @@ impl Chunk {
                 // ));
             }
         }
-       let mut moleds = vec![];
+        let mut moleds = vec![];
+        println!("{}", hm.keys().len());
         for (faces, position) in hm {
             moleds.push(Model::new(&device, &faces, position, bind_group.clone()))
         }
