@@ -38,17 +38,17 @@ fn init_logging() {
 
 fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
     let mut chunk1 = Chunk::new(1, 0, 0);
-    let mut chunk2 = Chunk::new(0, 0, 10);
+    // let mut chunk2 = Chunk::new(0, 0, 10);
     // let mut chunk3 = Chunk::new(1, 0, 1);
     // let mut chunk4 = Chunk::new(0, 0, 0);
-    let mut chunks: Vec<Chunk> = vec![chunk1, chunk2];
+    let mut chunks: Vec<Chunk> = vec![chunk1];
     let fbm = Fbm::new();
 
     // println!("{}",val);
     for i in 0..chunk::WIDTH {
         // for j in 0..((val.abs()*(chunk::HEIGHT as f64)) as i64) {
         for k in 0..chunk::LENGTH {
-            let val = (fbm.get([i as f64 / 256.0, k as f64 / 256.0, 1.0]) * 16.0 + 15.0).abs();
+            let val = (fbm.get([i as f64 / 256.0, k as f64 / 256.0, 1.0]) * 16.0 + 6.0).abs();
             println!("{}", val);
 
             for j in 0..(val as i64) {

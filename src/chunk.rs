@@ -5,9 +5,9 @@ use wgpu::{BindGroup, Device};
 
 use crate::model::{Faces, Model};
 
-pub const WIDTH: i64 = 256;
-pub const HEIGHT: i64 = 64;
-pub const LENGTH: i64 = 256;
+pub const WIDTH: i64 = 16;
+pub const HEIGHT: i64 = 16;
+pub const LENGTH: i64 = 16;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockKind {
     None,
@@ -122,7 +122,7 @@ impl Chunk {
                 //     vec![vec3(block.x as f32, block.y as f32, block.z as f32)],
                 //     bind_group.clone(),
                 // );
-                let pos = vec3(block.x * self.chunk_x as f32 , block.y as f32, block.z as f32);
+                let pos = vec3(block.x as f32 , block.y as f32, block.z as f32);
                 hm.entry(f).or_insert(vec![]).push(pos);
                 // hm.insert(f, );
                 // models.push(Model::new(
@@ -134,11 +134,20 @@ impl Chunk {
             }
         }
         let mut moleds = vec![];
-        println!("{}", hm.keys().len());
+        println!("{} unique faces", hm.keys().len());
         for (faces, position) in hm {
             moleds.push(Model::new(&device, &faces, position, bind_group.clone()))
         }
 
         moleds
+    }
+}
+impl BlockKind {
+    pub fn get_tex_coords(&self) -> (f32, f32) {
+            match self {
+                BlockKind::None => todo!(),
+                BlockKind::Air => todo!(),
+                BlockKind::Stone => (0.0, 0.0),
+            }
     }
 }

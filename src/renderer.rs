@@ -256,76 +256,95 @@ impl TropicRenderer {
             //         push_constant_ranges: &[],
             //     });
         }
-        let mut textures = vec![];
-        {
-            let stone = Texture::from_bytes(
-                &device,
-                &queue,
-                include_bytes!("../assets/stone.png"),
-                "stone",
-            )
-            .unwrap();
-            let stone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&stone.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&stone.sampler),
-                    },
-                ],
-                label: Some("diffuse_bind_group"),
-            });
-            textures.push(Arc::new(stone_bind_group));
-            let dirt = Texture::from_bytes(
-                &device,
-                &queue,
-                include_bytes!("../assets/dirt.png"),
-                "dirt",
-            )
-            .unwrap();
-            let dirt_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&dirt.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&dirt.sampler),
-                    },
-                ],
-                label: Some("diffuse_bind_group"),
-            });
-            textures.push(Arc::new(dirt_bind_group));
 
-            let end_stone = Texture::from_bytes(
-                &device,
-                &queue,
-                include_bytes!("../assets/end_stone.png"),
-                "dirt",
-            )
-            .unwrap();
-            let end_stone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&end_stone.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&end_stone.sampler),
-                    },
-                ],
-                label: Some("diffuse_bind_group"),
-            });
-            textures.push(Arc::new(end_stone_bind_group));
-        }
+        let atlas =
+            Texture::from_bytes(&device, &queue, include_bytes!("../atlas.png"), "stone").unwrap();
+        let atlas_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&atlas.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&atlas.sampler),
+                },
+            ],
+            label: Some("atlas_bind_group"),
+        });
+        let atlas_bind_group = Arc::new(atlas_bind_group);
+
+        // let mut textures = vec![];
+        // {
+        //     let stone = Texture::from_bytes(
+        //         &device,
+        //         &queue,
+        //         include_bytes!("../assets/stone.png"),
+        //         "stone",
+        //     )
+        //     .unwrap();
+        //     let stone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //         layout: &texture_bind_group_layout,
+        //         entries: &[
+        //             wgpu::BindGroupEntry {
+        //                 binding: 0,
+        //                 resource: wgpu::BindingResource::TextureView(&stone.view),
+        //             },
+        //             wgpu::BindGroupEntry {
+        //                 binding: 1,
+        //                 resource: wgpu::BindingResource::Sampler(&stone.sampler),
+        //             },
+        //         ],
+        //         label: Some("diffuse_bind_group"),
+        //     });
+        //     textures.push(Arc::new(stone_bind_group));
+        //     let dirt = Texture::from_bytes(
+        //         &device,
+        //         &queue,
+        //         include_bytes!("../assets/dirt.png"),
+        //         "dirt",
+        //     )
+        //     .unwrap();
+        //     let dirt_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //         layout: &texture_bind_group_layout,
+        //         entries: &[
+        //             wgpu::BindGroupEntry {
+        //                 binding: 0,
+        //                 resource: wgpu::BindingResource::TextureView(&dirt.view),
+        //             },
+        //             wgpu::BindGroupEntry {
+        //                 binding: 1,
+        //                 resource: wgpu::BindingResource::Sampler(&dirt.sampler),
+        //             },
+        //         ],
+        //         label: Some("diffuse_bind_group"),
+        //     });
+        //     textures.push(Arc::new(dirt_bind_group));
+
+        //     let end_stone = Texture::from_bytes(
+        //         &device,
+        //         &queue,
+        //         include_bytes!("../assets/end_stone.png"),
+        //         "dirt",
+        //     )
+        //     .unwrap();
+        //     let end_stone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //         layout: &texture_bind_group_layout,
+        //         entries: &[
+        //             wgpu::BindGroupEntry {
+        //                 binding: 0,
+        //                 resource: wgpu::BindingResource::TextureView(&end_stone.view),
+        //             },
+        //             wgpu::BindGroupEntry {
+        //                 binding: 1,
+        //                 resource: wgpu::BindingResource::Sampler(&end_stone.sampler),
+        //             },
+        //         ],
+        //         label: Some("diffuse_bind_group"),
+        //     });
+        //     textures.push(Arc::new(end_stone_bind_group));
+        // }
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
         let w = 64;
@@ -364,7 +383,11 @@ impl TropicRenderer {
 
         // let models = vec![m, m2];
         // let mut models = vec![];
-        let models = chunks.iter().map(|c| c.models(&device, textures[0].clone())).flatten().collect::<Vec<_>>();
+        let models = chunks
+            .iter()
+            .map(|c| c.models(&device, atlas_bind_group.clone()))
+            .flatten()
+            .collect::<Vec<_>>();
         // for i in -w..w {
         //     for j in -w..w {
         //         models.push(Model::new(
@@ -411,7 +434,9 @@ impl TropicRenderer {
             camera_bind_group,
             camera_buffer,
             camera_controller,
-            textures: textures,
+            // textures: textures,
+            atlas: atlas,
+            atlas_bind_group,
             depth_texture,
             models: models,
         }
@@ -701,7 +726,9 @@ pub struct TropicRenderer {
     camera_buffer: Buffer,
     camera_bind_group: BindGroup,
     pub camera_controller: CameraController,
-    textures: Vec<Arc<BindGroup>>,
+    // textures: Vec<Arc<BindGroup>>,
+    atlas: Texture,
+    atlas_bind_group: Arc<BindGroup>,
     depth_texture: Texture,
     models: Vec<Model>,
 }

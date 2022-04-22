@@ -40,57 +40,58 @@ impl Vertex {
 //         color: [0.0, 0.0, 1.0],
 //     },
 // ];
-pub const fn vertex(pos: [i8; 3], tc: [i8; 2]) -> Vertex {
+pub fn vertex(pos: [i8; 3], tc: [i8; 2], x_offset: f32, y_offset: f32) -> Vertex {
     Vertex {
         position: [pos[0] as f32, pos[1] as f32, pos[2] as f32],
-        color: [tc[0] as f32, tc[1] as f32],
+        color: [(tc[0] as f32 + x_offset) / 16.0, (tc[1] as f32 + y_offset) / 16.0 ],
     }
 }
-pub const fn north() -> [Vertex; 4] {
+pub fn north(x_offset: f32, y_offset: f32) -> [Vertex; 4] {
     [
-        vertex([-1, -1, 1], [0, 0]),
-        vertex([1, -1, 1], [1, 0]),
-        vertex([1, 1, 1], [1, 1]),
-        vertex([-1, 1, 1], [0, 1]),
+        vertex([-1, -1, 1], [0, 0], x_offset, y_offset),
+        vertex([1, -1, 1], [1, 0], x_offset, y_offset),
+        vertex([1, 1, 1], [1, 1], x_offset, y_offset),
+        vertex([-1, 1, 1], [0, 1], x_offset, y_offset),
     ]
 }
-pub const fn south() -> [Vertex; 4] {
+pub fn south(x_offset: f32, y_offset: f32) -> [Vertex; 4] {
     [
-        vertex([-1, 1, -1], [1, 0]),
-        vertex([1, 1, -1], [0, 0]),
-        vertex([1, -1, -1], [0, 1]),
-        vertex([-1, -1, -1], [1, 1]),
+        vertex([-1, 1, -1], [1, 0], x_offset, y_offset),
+        vertex([1, 1, -1], [0, 0], x_offset, y_offset),
+        vertex([1, -1, -1], [0, 1], x_offset, y_offset),
+        vertex([-1, -1, -1], [1, 1], x_offset, y_offset),
     ]
 }
-pub const fn west() -> [Vertex; 4] {
+pub fn west(x_offset: f32, y_offset: f32) -> [Vertex; 4] {
     [
-        vertex([-1, -1, 1], [1, 0]),
-        vertex([-1, 1, 1], [0, 0]),
-        vertex([-1, 1, -1], [0, 1]),
-        vertex([-1, -1, -1], [1, 1]),
+        vertex([-1, -1, 1], [1, 0], x_offset, y_offset),
+        vertex([-1, 1, 1], [0, 0], x_offset, y_offset),
+        vertex([-1, 1, -1], [0, 1], x_offset, y_offset),
+        vertex([-1, -1, -1], [1, 1], x_offset, y_offset),
     ]
 }
-pub const fn east() -> [Vertex; 4] {
+pub fn east(x_offset: f32, y_offset: f32) -> [Vertex; 4] {
     [
-        vertex([1, -1, -1], [0, 0]),
-        vertex([1, 1, -1], [1, 0]),
-        vertex([1, 1, 1], [1, 1]),
-        vertex([1, -1, 1], [0, 1]),
+        vertex([1, -1, -1], [0, 0], x_offset, y_offset),
+        vertex([1, 1, -1], [1, 0], x_offset, y_offset),
+        vertex([1, 1, 1], [1, 1], x_offset, y_offset),
+        vertex([1, -1, 1], [0, 1], x_offset, y_offset),
     ]
 }
-pub const fn bottom() -> [Vertex; 4] {
+pub fn bottom(x_offset: f32, y_offset: f32) -> [Vertex; 4] {
     [
-        vertex([1, -1, 1], [0, 0]),
-        vertex([-1, -1, 1], [1, 0]),
-        vertex([-1, -1, -1], [1, 1]),
-        vertex([1, -1, -1], [0, 1]),
+        vertex([1, -1, 1], [0, 0], x_offset, y_offset),
+        vertex([-1, -1, 1], [1, 0], x_offset, y_offset),
+        vertex([-1, -1, -1], [1, 1], x_offset, y_offset),
+        vertex([1, -1, -1], [0, 1], x_offset, y_offset),
     ]
 }
-pub const fn top() -> [Vertex; 4] {
+
+pub fn top(x_offset: f32, y_offset: f32) -> [Vertex; 4] {
     [
-        vertex([1, 1, -1], [1, 0]),
-        vertex([-1, 1, -1], [0, 0]),
-        vertex([-1, 1, 1], [0, 1]),
-        vertex([1, 1, 1], [1, 1]),
+        vertex([1, 1, -1], [1, 0], x_offset, y_offset),
+        vertex([-1, 1, -1], [0, 0], x_offset, y_offset),
+        vertex([-1, 1, 1], [0, 1], x_offset, y_offset),
+        vertex([1, 1, 1], [1, 1], x_offset, y_offset),
     ]
 }

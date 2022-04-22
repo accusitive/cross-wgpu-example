@@ -8,7 +8,7 @@ use wgpu::{
 
 use crate::{
     texture::Texture,
-    vertex::{self, Vertex},
+    vertex::{self, Vertex}, chunk::BlockKind,
 };
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Faces {
@@ -42,7 +42,7 @@ pub struct Model {
     instances: u32
 }
 impl Model {
-    fn get_verts_and_indexs(f: &Faces) -> (Vec<Vertex>, Vec<u16>) {
+    fn get_verts_and_indexs(f: &Faces, b: &BlockKind) -> (Vec<Vertex>, Vec<u16>) {
         let mut v = vec![];
         let mut i: Vec<u16> = vec![];
         let mut faces_added = 0;
@@ -52,29 +52,30 @@ impl Model {
             faces_added += 1;
             ind
         };
+        let (tx, ty) = b.get_tex_coords();
         if f.north {
-            v.extend(vertex::north());
+            v.extend(vertex::north(tx, ty));
             i.extend(indexes());
         }
         if f.south {
-            v.extend(vertex::south());
+            v.extend(vertex::south(tx, ty));
             i.extend(indexes());
             println!("{:?}", i);
         }
         if f.top {
-            v.extend(vertex::top());
+            v.extend(vertex::top(tx, ty));
             i.extend(indexes());
         }
         if f.bottom {
-            v.extend(vertex::bottom());
+            v.extend(vertex::bottom(tx, ty));
             i.extend(indexes());
         }
         if f.east {
-            v.extend(vertex::east());
+            v.extend(vertex::east(tx, ty));
             i.extend(indexes());
         }
         if f.west {
-            v.extend(vertex::west());
+            v.extend(vertex::west(tx, ty));
             i.extend(indexes());
         }
 
@@ -85,6 +86,7 @@ impl Model {
         device: &Device,
         f: &Faces,
         positions: Vec<Vector3<f32>>,
+        block_kinds: Vec<BlockKind>,
         bind_group: Arc<BindGroup>,
     ) -> Self {
         let (verts, indexes) = Self::get_verts_and_indexs(f);
