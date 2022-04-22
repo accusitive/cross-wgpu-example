@@ -9,6 +9,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Fullscreen, Window, WindowBuilder},
 };
+
+use crate::chunk::BlockKind;
 mod camera;
 mod chunk;
 mod gui;
@@ -52,12 +54,13 @@ fn run(event_loop: EventLoop<renderer::Event>, window: Window) {
             println!("{}", val);
 
             for j in 0..(val as i64) {
+                let kind = if i % 2 == 0 {BlockKind::Dirt} else {BlockKind::Stone};
                 for chunk in &mut chunks {
                     chunk.set_block(Block {
                         x: i,
                         y: j,
                         z: k,
-                        kind: chunk::BlockKind::Stone,
+                        kind: kind,
                     });
                 }
                

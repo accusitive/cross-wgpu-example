@@ -18,6 +18,7 @@ struct InstanceInput {
     [[location(3)]] model_matrix_1: vec4<f32>;
     [[location(4)]] model_matrix_2: vec4<f32>;
     [[location(5)]] model_matrix_3: vec4<f32>;
+    [[location(6)]] atlas_offsets: vec2<f32>;
 };
  
 [[stage(vertex)]]
@@ -30,11 +31,11 @@ fn vs_main(model: VertexInput, instance: InstanceInput) -> VertexOutput {
     );
 
     var out: VertexOutput;
-    out.tex_coords = model.tex_coords;
+    out.tex_coords = (model.tex_coords + instance.atlas_offsets) / 16.0 ;
 
     // out.color = vec3<f32>(1.0,1.0,1.0,1.)
     // var test = vec3<f32>(0.0, 0.0, 0.0);
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position/2.0, 1.0);
+    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position / 2.0, 1.0);
     return out;
 }
 [[group(1), binding(0)]]
@@ -44,6 +45,6 @@ var s_diffuse: sampler;
 
 [[stage(fragment)]] 
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    
+
     return  textureSample(t_diffuse, s_diffuse, in.tex_coords);
 }

@@ -1,9 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
-use cgmath::{vec3, Vector3};
+use cgmath::{vec3, Vector3, Vector2, vec2};
 use wgpu::{BindGroup, Device};
 
-use crate::model::{Faces, Model};
+use crate::model::{Faces, Model, ModelData};
 
 pub const WIDTH: i64 = 16;
 pub const HEIGHT: i64 = 16;
@@ -13,6 +13,7 @@ pub enum BlockKind {
     None,
     Air,
     Stone,
+    Dirt
 }
 #[derive(Debug, Clone, Copy)]
 pub struct Block {
@@ -53,6 +54,9 @@ impl Chunk {
     }
     pub fn set_block(&mut self, b: Block) {
         self.blocks[Self::flatten(b.x, b.y, b.z)] = b;
+    }
+    pub fn get_block_kinds(&self) -> Vec<BlockKind> {
+        self.blocks.iter().map(|b| b.kind).collect()
     }
     fn flatten(x: i64, y: i64, z: i64) -> usize {
         ((z * WIDTH * HEIGHT) + (y * WIDTH) + x) as usize
@@ -97,17 +101,17 @@ impl Chunk {
     }
     pub fn models(&self, device: &Device, bind_group: Arc<BindGroup>) -> Vec<Model> {
         // let mut models = vec![];
-        let mut hm: HashMap<Faces, Vec<Vector3<f32>>> = HashMap::new();
+        let mut hm: HashMap<Faces, Vec<ModelData>> = HashMap::new();
 
         for block in &self.blocks {
             if let BlockKind::Air = block.kind {
             } else {
-                let north = (self.block_north_of(block) == BlockKind::Air);
-                let south = (self.block_south_of(block) == BlockKind::Air);
-                let east = (self.block_east_of(block) == BlockKind::Air);
-                let west = (self.block_west_of(block) == BlockKind::Air);
-                let above = (self.block_above(block) == BlockKind::Air);
-                let below = (self.block_below(block) == BlockKind::Air);
+                let north = self.block_north_of(block) == BlockKind::Air;
+                let south = self.block_south_of(block) == BlockKind::Air;
+                let east = self.block_east_of(block) == BlockKind::Air;
+                let west = self.block_west_of(block) == BlockKind::Air;
+                let above = self.block_above(block) == BlockKind::Air;
+                let below = self.block_below(block) == BlockKind::Air;
                 let f = Faces {
                     north,
                     south,
@@ -123,7 +127,10 @@ impl Chunk {
                 //     bind_group.clone(),
                 // );
                 let pos = vec3(block.x as f32 , block.y as f32, block.z as f32);
-                hm.entry(f).or_insert(vec![]).push(pos);
+                hm.entry(f).or_insert(vec![]).push(ModelData {
+                    position: pos,
+                    kind: block.kind
+                });
                 // hm.insert(f, );
                 // models.push(Model::new(
                 //     &device,
@@ -135,6 +142,7 @@ impl Chunk {
         }
         let mut moleds = vec![];
         println!("{} unique faces", hm.keys().len());
+        // let kinds = self.get_block_kinds();
         for (faces, position) in hm {
             moleds.push(Model::new(&device, &faces, position, bind_group.clone()))
         }
@@ -143,11 +151,12 @@ impl Chunk {
     }
 }
 impl BlockKind {
-    pub fn get_tex_coords(&self) -> (f32, f32) {
+    pub fn get_tex_coords(&self) -> Vector2<f32> {
             match self {
                 BlockKind::None => todo!(),
                 BlockKind::Air => todo!(),
-                BlockKind::Stone => (0.0, 0.0),
+                BlockKind::Stone => vec2(0.0, 0.0),
+                BlockKind::Dirt => vec2(1.0, 0.0)
             }
     }
 }
